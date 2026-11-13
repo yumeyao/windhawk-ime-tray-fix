@@ -225,13 +225,9 @@ void ForEachInputIndicator(void (*callback)(HWND)) {
 using DeferWindowPos_t = HDWP(WINAPI*)(HDWP, HWND, HWND, int, int, int, int,
                                        UINT);
 using EndDeferWindowPos_t = BOOL(WINAPI*)(HDWP);
-using CreateWindowExW_t = HWND(WINAPI*)(DWORD, LPCWSTR, LPCWSTR, DWORD, int,
-                                        int, int, int, HWND, HMENU, HINSTANCE,
-                                        LPVOID);
 
 DeferWindowPos_t g_originalDeferWindowPos = nullptr;
 EndDeferWindowPos_t g_originalEndDeferWindowPos = nullptr;
-CreateWindowExW_t g_originalCreateWindowExW = nullptr;
 
 constexpr int kMaxEntries = 16;
 constexpr int kMaxBatches = 4;
@@ -390,48 +386,6 @@ void ApplyReorder(const Batch& batch) {
 }
 
 // ---------------------------------------------------------------------------
-// Supplementary-icon hiding
-// ---------------------------------------------------------------------------
-
-// Applies the child-window override immediately, without waiting for the
-// next layout pass. Uses SetWindowPos so it does not re-enter our hooks.
-// When the option is off, nothing is done here: explorer's next layout pass
-// (or the next input language switch) restores both children through the
-// unmodified DeferWindowPos path.
-void ApplyChildOverride(HWND host) {
-    if (!g_hideSupplementary.load(std::memory_order_relaxed)) {
-        return;
-    }
-
-    HWND imeMode =
-        FindWindowExW(host, nullptr, kImeModeButtonClass, nullptr);
-    HWND main = FindWindowExW(host, nullptr, kMainButtonClass, nullptr);
-    if (!imeMode && !main) {
-        return;
-    }
-
-    RECT hostRect{};
-    if (!GetClientRect(host, &hostRect)) {
-        return;
-    }
-    int hostWidth = hostRect.right - hostRect.left;
-
-    if (imeMode) {
-        SetWindowPos(imeMode, nullptr, 0, 0, 0, 0,
-                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-    }
-    if (main) {
-        RECT mainRect{};
-        if (GetWindowRect(main, &mainRect)) {
-            int mainWidth = mainRect.right - mainRect.left;
-            int x = (hostWidth - mainWidth) / 2;
-            SetWindowPos(main, nullptr, x, 0, 0, 0,
-                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Hooks
 // ---------------------------------------------------------------------------
 
@@ -569,41 +523,6 @@ BOOL WINAPI EndDeferWindowPos_Hook(HDWP hWinPosInfo) {
     return result;
 }
 
-HWND WINAPI CreateWindowExW_Hook(DWORD dwExStyle,
-                                 LPCWSTR lpClassName,
-                                 LPCWSTR lpWindowName,
-                                 DWORD dwStyle,
-                                 int x,
-                                 int y,
-                                 int nWidth,
-                                 int nHeight,
-                                 HWND hWndParent,
-                                 HMENU hMenu,
-                                 HINSTANCE hInstance,
-                                 LPVOID lpParam) {
-    HWND hWnd = g_originalCreateWindowExW(
-        dwExStyle, lpClassName, lpWindowName, dwStyle, x, y, nWidth, nHeight,
-        hWndParent, hMenu, hInstance, lpParam);
-
-    // The class name can also be an integer atom. IS_INTRESOURCE guards that.
-    if (hWnd && lpClassName && !IS_INTRESOURCE(lpClassName)) {
-        if (wcscmp(lpClassName, kInputIndicatorClass) == 0) {
-            // This hook runs on the thread that owns the new window, so the
-            // single-threaded subclass path is used here.
-            AttachSubclass(hWnd);
-            ApplyChildOverride(hWnd);
-        } else if (wcscmp(lpClassName, kImeModeButtonClass) == 0 ||
-                   wcscmp(lpClassName, kMainButtonClass) == 0) {
-            HWND parent = GetParent(hWnd);
-            if (parent) {
-                ApplyChildOverride(parent);
-            }
-        }
-    }
-
-    return hWnd;
-}
-
 // ---------------------------------------------------------------------------
 // Refresh
 // ---------------------------------------------------------------------------
@@ -684,11 +603,7 @@ BOOL Wh_ModInit() {
         !Wh_SetFunctionHook(
             reinterpret_cast<void*>(&EndDeferWindowPos),
             reinterpret_cast<void*>(&EndDeferWindowPos_Hook),
-            reinterpret_cast<void**>(&g_originalEndDeferWindowPos)) ||
-        !Wh_SetFunctionHook(
-            reinterpret_cast<void*>(&CreateWindowExW),
-            reinterpret_cast<void*>(&CreateWindowExW_Hook),
-            reinterpret_cast<void**>(&g_originalCreateWindowExW))) {
+            reinterpret_cast<void**>(&g_originalEndDeferWindowPos))) {
         Wh_Log(L"Failed to install hooks");
         return FALSE;
     }
