@@ -664,28 +664,11 @@ BOOL CALLBACK RefreshOneTaskbar(HWND shellTray, LPARAM lParam) {
     return TRUE;
 }
 
-// Nudges CTrayInputIndicator into running _ResizeChildWindows, which is what
-// restores the two child buttons after the hide option is turned off.
-void NudgeIndicator(HWND host) {
-    RECT rc{};
-    if (!GetClientRect(host, &rc)) {
-        return;
-    }
-    LPARAM size = MAKELPARAM(rc.right - rc.left, rc.bottom - rc.top);
-    DWORD_PTR unused = 0;
-    SendMessageTimeoutW(host, WM_SIZE, SIZE_RESTORED, size,
-                        SMTO_ABORTIFHUNG, 1000, &unused);
-}
-
 // Synchronous mode is used from settings change and uninit, where the hooks
 // are already installed. Wh_ModInit posts instead, because Windhawk applies
 // hooks only after Wh_ModInit returns.
-void RefreshAll(bool synchronous) {
-    EnumWindows(RefreshOneTaskbar, synchronous ? 1 : 0);
-    if (synchronous) {
-        ForEachInputIndicator(NudgeIndicator);
-    }
-    ForEachInputIndicator(ApplyChildOverride);
+void RefreshAll() {
+    EnumWindows(RefreshOneTaskbar, 0);
 }
 
 }  // namespace
@@ -712,15 +695,19 @@ BOOL Wh_ModInit() {
 
     // Cover taskbars that already exist when the mod is enabled at runtime.
     ForEachInputIndicator(AttachSubclass);
-    RefreshAll(false);
 
     return TRUE;
+}
+
+
+void Wh_ModAfterInit() {
+    RefreshAll();
 }
 
 void Wh_ModSettingsChanged() {
     Wh_Log(L"SettingsChanged");
     LoadSettings();
-    RefreshAll(true);
+    RefreshAll();
 }
 
 void Wh_ModUninit() {
@@ -733,5 +720,5 @@ void Wh_ModUninit() {
     g_fixedWidth.store(false, std::memory_order_relaxed);
     g_hideSupplementary.store(false, std::memory_order_relaxed);
     ForEachInputIndicator(DetachSubclass);
-    RefreshAll(true);
+    RefreshAll();
 }
