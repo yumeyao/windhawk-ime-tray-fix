@@ -1,8 +1,8 @@
 // ==WindhawkMod==
 // @id              win10-ime-tray-icon-fix
 // @name            Windows 10 IME Tray Icon Fix
-// @description     Moves the input indicator to the left of the notification area so its width change cannot shift the tray icons.
-// @version         1.0
+// @description     Moves the input indicator to the left of the notification area so its width change cannot shift the tray icons. Alternative modes provided.
+// @version         1.1
 // @author          yumeyao
 // @github          https://github.com/yumeyao
 // @include         explorer.exe
@@ -32,6 +32,10 @@ When **"Let me set a different input method for each app window"** is enabled in
 
 ## The Fix
 
+Each can solve the bug alone, but you can customize the taskbar by enabling multiple modes!
+
+#### Mode 1: Move the input indicator to the leftmost (recommended)
+
 ```text
 [IME Indicator]  |  [Chevron ^]  |  [SysPager (Tray Icons)]  |  [Clock]  |  [Show Desktop]
 ```
@@ -39,6 +43,14 @@ When **"Let me set a different input method for each app window"** is enabled in
 The indicator takes the first slot and everything that used to sit left of it
 moves right by the indicator's width. Thus, every band is now to the right of
 the indicator, sits at a fixed distance from the right edge and never moves.
+
+#### Mode 2: Fixed width
+
+Forces the indicator to always occupy a fixed width. 36 = one glyph, 58 = glyph + secondary. Other values accepted too.
+
+#### Mode 3: Hide secondary IME mode glyph (single-glyph mode)
+
+Hides the 中/英 or あ/Ａ button inside the indicator, so the width is then fixed at 36.
 
 ## Notes and known limitations
 
@@ -48,6 +60,20 @@ the indicator, sits at a fixed distance from the right edge and never moves.
 
 */
 // ==/WindhawkModReadme==
+
+// ==WindhawkModSettings==
+/*
+- moveToLeft: true
+  $name: Move the input indicator to the leftmost
+  $description: Puts the indicator in the first slot of the notification area and shifts everything that used to sit left of it to the right.
+- fixedWidth: -1
+  $name: Fixed width
+  $description: Width in pixels of the indicator slot. Set -1 to keep the natural width. 36 = one glyph, 58 = glyph + secondary. Other values accepted too (0 = completely hidden).
+- hideImeMode: false
+  $name: Hide secondary IME mode glyph
+  $description: Hides the 中/英 or あ/Ａ button inside the indicator.
+*/
+// ==/WindhawkModSettings==
 
 #include <windows.h>
 #include <commctrl.h>
@@ -59,9 +85,28 @@ the indicator, sits at a fixed distance from the right edge and never moves.
 
 namespace {
 
+// Move the input indicator into the first slot and push everything that used to
+// sit left of it to the right.
+bool g_movePosition;
+
+// Pin the indicator's band to this width in pixels. -1 leaves the natural width
+// alone, 0 hides the indicator entirely, anything above 0 is a fixed slot.
+int g_fixedWidth;
+
+// Hide the secondary IME mode glyph, the 中/英 button that sits left of the
+// language glyph inside the indicator. This does not change the band width:
+// CTrayInputIndicator computes that from the input profile count, not from which
+// children happen to be visible. Pair it with g_fixedWidth to also shrink the
+// slot.
+bool g_hideImeMode;
+
+// ---------------------------------------------------------------------------
+
 constexpr wchar_t kTrayWndClass[] = L"Shell_TrayWnd";
 constexpr wchar_t kTrayNotifyClass[] = L"TrayNotifyWnd";
 constexpr wchar_t kIndicatorClass[] = L"TrayInputIndicatorWClass";
+constexpr wchar_t kImeModeClass[] = L"IMEModeButton";
+constexpr wchar_t kMainIconClass[] = L"InputIndicatorButton";
 constexpr wchar_t kSysPagerClass[] = L"SysPager";
 
 // CTrayChevron::RuntimeClassInitialize creates the chevron with (HMENU)0x5DE.
@@ -72,11 +117,20 @@ constexpr int kChevronCtrlId = 0x05DE;
 // CTrayInputIndicator::v_WndProc (message case 1124).
 constexpr UINT kMsgGetMinSize = 0x464;
 
+// CTrayNotify::v_WndProc (case 1045) runs _ResizeOnIconChange, which notifies
+// the host through _OnSizeChanged before it lays the children out. That is the
+// only message-driven path that makes the taskbar re-measure and reposition the
+// notification area, so it is what keeps the container in sync when the band
+// width changes.
+constexpr UINT kMsgRelayout = 0x415;
+
 constexpr int kMaxShift = 8;
 
 struct Tray {
     std::atomic<HWND> hNotify{nullptr};
     std::atomic<HWND> hIndicator{nullptr};
+    std::atomic<HWND> hImeMode{nullptr};
+    std::atomic<HWND> hMainIcon{nullptr};
     std::atomic<HWND> shift[kMaxShift];
     std::atomic<int> shiftCount{0};
     std::atomic<int> bandWidth{0};
@@ -84,6 +138,30 @@ struct Tray {
 
 Tray g_tray;
 std::atomic<bool> g_unloading{false};
+
+void LoadSettings() {
+    g_movePosition = Wh_GetIntSetting(L"moveToLeft") != 0;
+    g_hideImeMode = Wh_GetIntSetting(L"hideImeMode") != 0;
+
+    int width = Wh_GetIntSetting(L"fixedWidth");
+    if (width < 0 && g_hideImeMode) {
+        // With the mode glyph gone the slot only has to hold the language
+        // glyph. Pinning it to 36 keeps the layout tight instead of leaving a
+        // gap where the hidden glyph used to be.
+        width = 36;
+    }
+    g_fixedWidth = width;
+}
+
+// Applies g_hideImeMode to the secondary IME mode glyph, in both directions.
+// ShowWindow is a no-op when the window is already in the requested state, so
+// this is safe to call on every layout as well as from the mod entry points.
+void EnforceImeModeHidden() {
+    HWND hImeMode = g_tray.hImeMode.load(std::memory_order_relaxed);
+    if (hImeMode && IsWindow(hImeMode)) {
+        ShowWindow(hImeMode, g_hideImeMode ? SW_HIDE : SW_SHOW);
+    }
+}
 
 bool Transformable(HWND hWnd) {
     if (g_unloading.load(std::memory_order_relaxed)) {
@@ -107,17 +185,20 @@ LRESULT CALLBACK IndicatorProc(HWND hWnd, UINT msg, WPARAM wParam,
     // No query of our own is needed.
     if (msg == kMsgGetMinSize) {
         LRESULT result = DefSubclassProc(hWnd, msg, wParam, lParam);
-        // Store unconditionally, including a zero reply: when the indicator is
-        // hidden it reports width 0, and keeping the previous non-zero value
-        // would shift the remaining bands by a width that no longer exists.
-        g_tray.bandWidth.store(static_cast<int>(LOWORD(result)),
-                               std::memory_order_relaxed);
-        return result;
+        int width = LOWORD(result);
+        // -1 leaves the natural width alone; 0 collapses the band so the
+        // indicator takes no space at all.
+        if (g_fixedWidth >= 0) {
+            width = g_fixedWidth;
+        }
+        g_tray.bandWidth.store(width, std::memory_order_relaxed);
+        return MAKELONG(width, HIWORD(result));
     }
 
     if (msg == WM_WINDOWPOSCHANGING) {
+        EnforceImeModeHidden();
         auto* wp = reinterpret_cast<WINDOWPOS*>(lParam);
-        if (!(wp->flags & SWP_NOMOVE) && Transformable(hWnd)) {
+        if (g_movePosition && !(wp->flags & SWP_NOMOVE) && Transformable(hWnd)) {
             wp->x = 0;
         }
     }
@@ -130,8 +211,28 @@ LRESULT CALLBACK ShiftRightProc(HWND hWnd, UINT msg, WPARAM wParam,
                                 LPARAM lParam, DWORD_PTR /*dwRefData*/) {
     if (msg == WM_WINDOWPOSCHANGING) {
         auto* wp = reinterpret_cast<WINDOWPOS*>(lParam);
-        if (!(wp->flags & SWP_NOMOVE) && Transformable(hWnd)) {
+        if (g_movePosition && !(wp->flags & SWP_NOMOVE) &&
+            Transformable(hWnd)) {
             wp->x += g_tray.bandWidth.load(std::memory_order_relaxed);
+        }
+    }
+    return DefSubclassProc(hWnd, msg, wParam, lParam);
+}
+
+// CTrayInputIndicator::_ResizeChildWindows places the main glyph at the right
+// edge of the mode glyph's computed rect, so with the mode glyph hidden and the
+// slot narrowed the main glyph ends up past the right edge and gets clipped.
+// Centre it in the slot instead.
+LRESULT CALLBACK MainIconProc(HWND hWnd, UINT msg, WPARAM wParam,
+                              LPARAM lParam, DWORD_PTR /*dwRefData*/) {
+    if (msg == WM_WINDOWPOSCHANGING) {
+        auto* wp = reinterpret_cast<WINDOWPOS*>(lParam);
+        if (g_hideImeMode && !(wp->flags & SWP_NOMOVE) &&
+            Transformable(hWnd)) {
+            int band = g_tray.bandWidth.load(std::memory_order_relaxed);
+            if (band > 0 && wp->cx > 0) {
+                wp->x = band > wp->cx ? (band - wp->cx) / 2 : 0;
+            }
         }
     }
     return DefSubclassProc(hWnd, msg, wParam, lParam);
@@ -147,6 +248,8 @@ HWND FindTrayNotify() {
 // this classification cannot be deferred to the layout pass; everything else
 // about the transform is worked out per layout.
 void SyncNotify(HWND hNotify) {
+    g_tray.hNotify.store(hNotify, std::memory_order_relaxed);
+
     HWND hIndicator = FindWindowExW(hNotify, nullptr, kIndicatorClass, nullptr);
     RECT indicatorRect;
     if (!hIndicator || !GetWindowRect(hIndicator, &indicatorRect)) {
@@ -184,8 +287,13 @@ void SyncNotify(HWND hNotify) {
     }
     addShift(FindWindowExW(hNotify, nullptr, kSysPagerClass, nullptr));
 
-    g_tray.hNotify.store(hNotify, std::memory_order_relaxed);
     g_tray.hIndicator.store(hIndicator, std::memory_order_relaxed);
+    g_tray.hImeMode.store(
+        FindWindowExW(hIndicator, nullptr, kImeModeClass, nullptr),
+        std::memory_order_relaxed);
+    HWND hMainIcon =
+        FindWindowExW(hIndicator, nullptr, kMainIconClass, nullptr);
+    g_tray.hMainIcon.store(hMainIcon, std::memory_order_relaxed);
     g_tray.shiftCount.store(shiftCount, std::memory_order_relaxed);
     for (int i = 0; i < kMaxShift; ++i) {
         g_tray.shift[i].store(i < shiftCount ? shift[i] : nullptr,
@@ -199,30 +307,39 @@ void SyncNotify(HWND hNotify) {
     // message-check points. If one of those falls between a layout pass's
     // measuring phase and its DeferWindowPos batch, the batch would otherwise
     // see a width of zero and move nothing.
-    g_tray.bandWidth.store(indicatorRect.right - indicatorRect.left,
-                           std::memory_order_relaxed);
+    int seed = indicatorRect.right - indicatorRect.left;
+    if (g_fixedWidth >= 0) {
+        seed = g_fixedWidth;
+    }
+    g_tray.bandWidth.store(seed, std::memory_order_relaxed);
 
     WindhawkUtils::SetWindowSubclassFromAnyThread(hIndicator, IndicatorProc, 0);
+    if (hMainIcon) {
+        WindhawkUtils::SetWindowSubclassFromAnyThread(hMainIcon, MainIconProc,
+                                                      0);
+    }
     for (int i = 0; i < shiftCount; ++i) {
         WindhawkUtils::SetWindowSubclassFromAnyThread(shift[i], ShiftRightProc,
                                                       0);
     }
 }
 
-// Re-applies the child order. Safe as a plain WM_SIZE: the transform preserves
-// the total width, so the container never needs to be re-measured.
+// Re-runs the whole notification area layout. kMsgRelayout reaches
+// CTrayNotify::_ResizeOnIconChange, which notifies the host through
+// _OnSizeChanged first and only then lays the children out, so the container is
+// already resized by the time the children are placed. A plain WM_SIZE would
+// only re-lay out the children inside the current rectangle, which is wrong
+// whenever the band width changed.
 void Refresh(HWND hNotify) {
-    RECT rc;
-    if (hNotify && GetWindowRect(hNotify, &rc) && !IsRectEmpty(&rc)) {
-        PostMessageW(hNotify, WM_SIZE, SIZE_RESTORED,
-                     MAKELPARAM(rc.right - rc.left, rc.bottom - rc.top));
+    if (hNotify) {
+        PostMessageW(hNotify, kMsgRelayout, 0, 0);
     }
 }
 
 }  // namespace
 
 BOOL Wh_ModInit() {
-    Wh_Log(L"Init");
+    LoadSettings();
     return TRUE;
 }
 
@@ -233,11 +350,19 @@ void Wh_ModAfterInit() {
         return;
     }
     SyncNotify(hNotify);
+    EnforceImeModeHidden();
     Refresh(hNotify);
 }
 
+void Wh_ModSettingsChanged() {
+    LoadSettings();
+    EnforceImeModeHidden();
+    Refresh(g_tray.hNotify.load(std::memory_order_relaxed));
+}
+
 void Wh_ModUninit() {
-    Wh_Log(L"Uninit");
+    g_hideImeMode = false;
+    EnforceImeModeHidden();
 
     g_unloading.store(true, std::memory_order_relaxed);
 
@@ -255,6 +380,11 @@ void Wh_ModUninit() {
             WindhawkUtils::RemoveWindowSubclassFromAnyThread(hwnd,
                                                             ShiftRightProc);
         }
+    }
+    HWND hMainIcon = g_tray.hMainIcon.load(std::memory_order_relaxed);
+    if (hMainIcon) {
+        WindhawkUtils::RemoveWindowSubclassFromAnyThread(hMainIcon,
+                                                        MainIconProc);
     }
 
     // Restore the stock order right away.
