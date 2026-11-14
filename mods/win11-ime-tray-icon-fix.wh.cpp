@@ -30,7 +30,7 @@ When **"Let me set a different input method for each app window"** is enabled in
 2. When you click a tray icon (such as Steam or WiFi), `WM_LBUTTONDOWN` immediately shifts focus to `explorer.exe`.
 3. The shell defaults to English, shrinking the indicator down to **1 glyph** (`ENG`).
 4. Because the clock on the right is pinned to the right edge, the shrunk width forces **everything to the left of the indicator (`SysPager` and `Chevron ^`) to slide rightward**.
-5. When `WM_LBUTTONUP` fires, the icon you aimed at has moved, and your click registers on whichever neighboring icon slid under your cursor.
+5. When `WM_LBUTTONUP` fires, the icon you aimed at has moved, and your click lands on whichever neighboring icon slid under your cursor.
 
 ## The Fix
 
