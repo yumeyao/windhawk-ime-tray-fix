@@ -39,6 +39,10 @@ The fixed layout:
 [IME Indicator]  |  [Chevron ^]  |  [SysPager (Tray Icons)]  |  [Clock]  |  [Show Desktop]
 ```
 
+##### Mimicking Docked Language Bar?
+
+Yes. But the docked language bar is broken in win10 (unstable, and won't work in remote desktop - even if you enable this option in both sides, and the latest MSPY doesn't support it unless you turn on "Use the old version of MSPY") and is completely removed in win11.
+
 ---
 
 ## Windhawk Mod
@@ -63,7 +67,7 @@ Offers three modes, which can be enabled individually or in combination:
 - **Mode 2: Fixed width** - forces the indicator to always occupy a fixed pixel width. 36 for one glyph, 58 for one glyph plus the secondary icon; 0 hides it completely.
 - **Mode 3: Hide the secondary input indicator icon** - hides the "中/英" or "あ/Ａ" button inside the indicator.
 
-> Builds 19042-19045 (including 20H2 and LTSC 2021) share the exact same binary codebase and should work flawlessly; earlier builds (1903/1909 and prior) should theoretically work as well but remain untested.
+> Tested on Windows 10 21H2. Windows 10 20H2 and above (including LTSC 2021, Builds 19042–19045) share the exact same binary codebase, so it should work flawlessly. Earlier builds (1903/1909 and prior) should theoretically work as well, but remain untested.
 
 ### Windows 11 Mod
 
@@ -72,4 +76,10 @@ Does exactly one thing: puts the indicator in the first slot of the notification
 - Width / spacing: handled by the official mod "Taskbar height and icon size".
 - Hiding the IME secondary icon: handled by the official mod "Taskbar tray system icon tweaks".
 
-> Cross-version (e.g., different 24H2 minor builds) should work: Windows 11 spreads the system tray logic across `SystemTray.dll` / `Taskbar.View.dll` / `ExplorerExtensions.dll`. Which dll it lands in depends on the exact Windows version, but the logic and implementation stay unchanged.
+> Tested on 24H2. Cross version should work: Windows 11 spreads the system tray logic across `SystemTray.dll` / `Taskbar.View.dll` / `ExplorerExtensions.dll`. Which dll it lands in depends on the exact Windows version, but the logic and implementation stay unchanged, and Windhawk provides a good mechanism for addressing this.
+
+### AI Contribution Statement
+
+The reverse engineering and the source code were completed by an AI agent. The final mod products, however, were guided and audited by the author to make sure no unnecessary extra performance overhead was introduced (the AI had previously introduced a repeating timers or an extra thread). For the Windows 10 mod, the author verified and confirmed both the tech stack and the concrete implementation. For the Windows 11 mod, the author only audited and ruled out the extra performance overhead, because the author did not bother to study the XAML details.
+
+The rendering GIF animation is produced by an AI Agent, this is what the author is absolutely unwilling to do without an AI Agent :).

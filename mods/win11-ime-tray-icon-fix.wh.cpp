@@ -40,9 +40,11 @@ When **"Let me set a different input method for each app window"** is enabled in
 [IME Indicator]  |  [Chevron ^]  |  [SysPager (Tray Icons)]  |  [Clock]  |  [Show Desktop]
 ```
 
-The indicator takes the first slot and everything that used to sit left of it
-moves right by the indicator's width. Thus, every band is now to the right of
-the indicator, sits at a fixed distance from the right edge and never moves.
+The indicator takes the first slot and everything that used to sit left of it moves right by the indicator's width. Thus, every band is now to the right of the indicator, sits at a fixed distance from the right edge and never moves.
+
+##### Mimicking Docked Language Bar?
+
+Yes. But the docked language bar is broken in win10 (unstable, and won't work in remote desktop - even if you enable this option in both sides, and the latest MSPY doesn't support it unless you turn on "Use the old version of MSPY") and is completely removed in win11.
 
 ## Notes and known limitations
 
