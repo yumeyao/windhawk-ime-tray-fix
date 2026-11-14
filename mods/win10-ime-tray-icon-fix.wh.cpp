@@ -16,6 +16,8 @@
 
 ## Default Stock Layout And The Bug
 
+![Before Fix](https://raw.githubusercontent.com/yumeyao/windhawk-ime-tray-fix/refs/heads/master/doc/before-fix.gif)
+
 ```text
   Screen Left  <-----------------------------------------------------  Screen Right Edge
   [Chevron ^]  |  [SysPager (Tray Icons)]  |  [IME Indicator]  |  [Clock]  |  [Show Desktop]
@@ -35,6 +37,8 @@ When **"Let me set a different input method for each app window"** is enabled in
 Each can solve the bug alone, but you can customize the taskbar by enabling multiple modes!
 
 #### Mode 1: Move the input indicator to the leftmost (recommended)
+
+![After Fix](https://raw.githubusercontent.com/yumeyao/windhawk-ime-tray-fix/refs/heads/master/doc/after-fix.gif)
 
 ```text
 [IME Indicator]  |  [Chevron ^]  |  [SysPager (Tray Icons)]  |  [Clock]  |  [Show Desktop]

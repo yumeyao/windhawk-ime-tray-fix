@@ -16,6 +16,8 @@
 
 ## Default Stock Layout And The Bug
 
+![Before Fix](https://raw.githubusercontent.com/yumeyao/windhawk-ime-tray-fix/refs/heads/master/doc/before-fix.gif)
+
 ```text
   Screen Left  <-----------------------------------------------------  Screen Right Edge
   [Chevron ^]  |  [SysPager (Tray Icons)]  |  [IME Indicator]  |  [Clock]  |  [Show Desktop]
@@ -31,6 +33,8 @@ When **"Let me set a different input method for each app window"** is enabled in
 5. When `WM_LBUTTONUP` fires, the icon you aimed at has moved, and your click registers on whichever neighboring icon slid under your cursor.
 
 ## The Fix
+
+![After Fix](https://raw.githubusercontent.com/yumeyao/windhawk-ime-tray-fix/refs/heads/master/doc/after-fix.gif)
 
 ```text
 [IME Indicator]  |  [Chevron ^]  |  [SysPager (Tray Icons)]  |  [Clock]  |  [Show Desktop]
