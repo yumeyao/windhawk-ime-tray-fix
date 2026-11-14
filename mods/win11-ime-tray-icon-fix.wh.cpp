@@ -6,7 +6,8 @@
 // @author          yumeyao
 // @github          https://github.com/yumeyao
 // @include         explorer.exe
-// @compilerOptions -lcomctl32 -luser32
+// @architecture    x86-64
+// @compilerOptions -lole32 -loleaut32 -lruntimeobject -lversion
 // @license         MIT
 // ==/WindhawkMod==
 
