@@ -1,4 +1,4 @@
-ENG | [中文](doc/README_cn.md)
+ENG | [中文](doc/README_cn.md) | [日本語](doc/README_ja.md)
 
 # IME Tray Icon Fix
 
@@ -41,7 +41,12 @@ The fixed layout:
 
 ##### Mimicking Docked Language Bar?
 
-Yes. But the docked language bar is broken in win10 (unstable, and won't work in remote desktop - even if you enable this option in both sides, and the latest MSPY doesn't support it unless you turn on "Use the old version of MSPY") and is completely removed in win11.
+Yes. But this feature is already broken in Win10, and has been completely removed in Win11:
+
+- **Unstable state in Windows 10**: The feature sometimes reverts to a disabled language bar state for various inexplicable reasons.
+  - **Remote Desktop (RDP)**: Remote Desktop is completely unsupported. It inevitably reverts to the disabled language bar state - even if both sides have this setting enabled.
+- **Unsupported by the new IME**: The new version of Microsoft Pinyin itself does not support docking the language bar, unless you manually enable "Use previous version of Microsoft Pinyin".
+- **Completely removed in Windows 11**: Underlying interfaces such as DeskBand have been completely removed by Microsoft, making native docking impossible to use.
 
 ---
 
@@ -56,7 +61,7 @@ The two systems implement the system tray completely differently (Windows 10 use
 | Source file | `win10-ime-tray-icon-fix.wh.cpp` | `win11-ime-tray-icon-fix.wh.cpp` |
 | Tech stack | Pure Win32 (HWND / window subclassing) | XAML (WinRT) |
 | Mod ID | `win10-ime-tray-icon-fix` | `win11-ime-tray-icon-fix` |
-| Tested on | 21H2 (Build 19044) | 24H2 |
+| Tested on | 21H2 (Build 19044) | 24H2 LTSC / 26H2 |
 | User settings | See below (3 modes) | None (toggle only) |
 
 ### Windows 10 Mod
@@ -76,7 +81,7 @@ Does exactly one thing: puts the indicator in the first slot of the notification
 - Width / spacing: handled by the official mod "Taskbar height and icon size".
 - Hiding the IME secondary icon: handled by the official mod "Taskbar tray system icon tweaks".
 
-> Tested on 24H2. Cross version should work: Windows 11 spreads the system tray logic across `SystemTray.dll` / `Taskbar.View.dll` / `ExplorerExtensions.dll`. Which dll it lands in depends on the exact Windows version, but the logic and implementation stay unchanged, and Windhawk provides a good mechanism for addressing this.
+> `SystemTrayFrameGrid` can be a `Grid` or a `StackPanel`. Verified on Windows 11 24H2 LTSC (`Grid`) and 26H2 (`StackPanel`). Other versions should work as the mechanism is identical and the Windhawk should handle the injection properly, remain untested though.
 
 ### AI Contribution Statement
 
