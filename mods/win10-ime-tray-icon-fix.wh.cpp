@@ -36,7 +36,7 @@ When **"Let me set a different input method for each app window"** is enabled in
 
 Each can solve the bug alone, but you can customize the taskbar by enabling multiple modes!
 
-#### Mode 1: Move the input indicator to the leftmost (recommended)
+### Mode 1: Move the input indicator to the leftmost (recommended)
 
 ![After Fix](https://raw.githubusercontent.com/yumeyao/windhawk-ime-tray-fix/refs/heads/master/doc/after-fix.gif)
 
@@ -46,15 +46,15 @@ Each can solve the bug alone, but you can customize the taskbar by enabling mult
 
 The indicator takes the first slot and everything that used to sit left of it moves right by the indicator's width. Thus, every band is now to the right of the indicator, sits at a fixed distance from the right edge and never moves.
 
-##### Mimicking Docked Language Bar?
+#### Mimicking Docked Language Bar?
 
 Yes. But the docked language bar is broken in win10 (unstable, and won't work in remote desktop - even if you enable this option in both sides, and the latest MSPY doesn't support it unless you turn on "Use the old version of MSPY") and is completely removed in win11.
 
-#### Mode 2: Fixed width
+### Mode 2: Fixed width
 
 Forces the indicator to always occupy a fixed width. The value is in **pixels at 100% display scaling** and is scaled by the monitor DPI. 36 = one glyph, 58 = glyph + secondary. Other values accepted too.
 
-#### Mode 3: Hide secondary IME mode glyph (single-glyph mode)
+### Mode 3: Hide secondary IME mode glyph (single-glyph mode)
 
 Hides the 中/英 or あ/Ａ button inside the indicator.
 

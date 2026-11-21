@@ -39,7 +39,7 @@ The fixed layout:
 [IME Indicator]  |  [Chevron ^]  |  [SysPager (Tray Icons)]  |  [Clock]  |  [Show Desktop]
 ```
 
-##### Mimicking Docked Language Bar?
+#### Mimicking Docked Language Bar?
 
 Yes. But this feature is already broken in Win10, and has been completely removed in Win11:
 

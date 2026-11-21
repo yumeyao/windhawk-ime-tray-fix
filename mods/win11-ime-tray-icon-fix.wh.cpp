@@ -43,7 +43,7 @@ When **"Let me set a different input method for each app window"** is enabled in
 
 The indicator takes the first slot and everything that used to sit left of it moves right by the indicator's width. Thus, every band is now to the right of the indicator, sits at a fixed distance from the right edge and never moves.
 
-##### Mimicking Docked Language Bar?
+#### Mimicking Docked Language Bar?
 
 Yes. But the docked language bar is broken in win10 (unstable, and won't work in remote desktop - even if you enable this option in both sides, and the latest MSPY doesn't support it unless you turn on "Use the old version of MSPY") and is completely removed in win11.
 
@@ -51,7 +51,7 @@ Yes. But the docked language bar is broken in win10 (unstable, and won't work in
 
 - This mod is separated from [the Win 10 fix](https://windhawk.net/mods/win10-ime-tray-icon-fix) because the UI technology (XAML vs Win32) is completely different. So they share no common code.
 - No alternative modes. You can adjust width / hide icon using the official (m417z) mods "Taskbar height and icon size" and "Taskbar tray system icon tweaks".
-- This mod alters the grid columns (indice), which might be changed by other mods too (Styler). The co-existence itself is fine, but recording the correct state (for editing settings / turning on or off  on-the-fly) across multiple mods is techniclaly impossible. It's recommended to use one mod alone, if you need both, create a custom style theme with the icons swapped.
+- This mod alters the grid columns (indices), which might be changed by other mods too (Styler). The co-existence itself is fine, but recording the correct state (for editing settings / turning on or off on-the-fly) across multiple mods is technically impossible. It's recommended to use one mod alone, if you need both, create a custom style theme with the icons swapped.
 - Source code and reverse engineering credit goes to AI bot (hy4). Heavily guided to follow the framework of the official mods above, with AI-hallucinated overhead (it added a repeating timer) dropped. But not fully revised (don't want to learn XAML 🙂).
 - `SystemTrayFrameGrid` can be a `Grid` or a `StackPanel`. Verified on Windows 11 24H2 LTSC (`Grid`) and 26H2 (`StackPanel`). Other versions should work as the mechanism is identical and the Windhawk should handle the injection properly, remain untested though.
 */
